@@ -5,6 +5,12 @@
   // Actualiza esta fecha si Wrangler te lo pide en el deploy.
   "compatibility_date": "2026-06-05",
   "compatibility_flags": ["nodejs_compat"],
+  // Variable publica (no sensible): se define aca para que persista en cada
+  // deploy. Los secretos (OPENAI_API_KEY, SUPABASE_SERVICE_ROLE_KEY) NO van
+  // aca, esos quedan solo en Cloudflare como "Secret" (Settings > Variables).
+  "vars": {
+    "NEXT_PUBLIC_SUPABASE_URL": "https://owhlpaypipgkihgubvfl.supabase.co"
+  },
   "assets": {
     "directory": ".open-next/assets",
     "binding": "ASSETS"
