@@ -58,16 +58,20 @@ export async function verifySessionToken(
 
   try {
     const key = await getKey(secret);
+    // Cast a BufferSource: en TS 5.9+ Uint8Array es generico sobre
+    // ArrayBufferLike, que no coincide exactamente con el tipo BufferSource
+    // esperado por Web Crypto (ArrayBufferView<ArrayBuffer>), aunque el valor
+    // en runtime es perfectamente valido (buffer normal, no compartido).
     const valid = await crypto.subtle.verify(
       "HMAC",
       key,
-      base64UrlToBytes(sigB64),
-      encoder.encode(payloadB64)
+      base64UrlToBytes(sigB64) as BufferSource,
+      encoder.encode(payloadB64) as BufferSource
     );
     if (!valid) return null;
 
     const payload = JSON.parse(
-      new TextDecoder().decode(base64UrlToBytes(payloadB64))
+      new TextDecoder().decode(base64UrlToBytes(payloadB64) as BufferSource)
     ) as SessionPayload;
 
     if (typeof payload.exp !== "number" || payload.exp < Date.now() / 1000) {
