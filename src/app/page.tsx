@@ -2,10 +2,44 @@
 
 import Image from "next/image";
 import { useState, useRef, useEffect } from "react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 
 type ChatMessage = {
   role: "user" | "assistant";
   content: string;
+};
+
+// Componentes de Markdown con estilo Tailwind, usados solo para las
+// respuestas del asistente (permite que el modelo devuelva tablas cuando
+// corresponda, por ejemplo listados de ventas, personas o proyectos).
+const markdownComponents = {
+  table: (props: React.ComponentPropsWithoutRef<"table">) => (
+    <div className="my-2 overflow-x-auto rounded-md border border-neutral-200">
+      <table className="w-full border-collapse text-sm" {...props} />
+    </div>
+  ),
+  thead: (props: React.ComponentPropsWithoutRef<"thead">) => (
+    <thead className="bg-trei-light text-trei-dark" {...props} />
+  ),
+  th: (props: React.ComponentPropsWithoutRef<"th">) => (
+    <th className="border-b border-neutral-200 px-3 py-2 text-left font-medium" {...props} />
+  ),
+  td: (props: React.ComponentPropsWithoutRef<"td">) => (
+    <td className="border-b border-neutral-100 px-3 py-2" {...props} />
+  ),
+  p: (props: React.ComponentPropsWithoutRef<"p">) => (
+    <p className="mb-2 last:mb-0" {...props} />
+  ),
+  ul: (props: React.ComponentPropsWithoutRef<"ul">) => (
+    <ul className="mb-2 list-disc space-y-1 pl-5 last:mb-0" {...props} />
+  ),
+  ol: (props: React.ComponentPropsWithoutRef<"ol">) => (
+    <ol className="mb-2 list-decimal space-y-1 pl-5 last:mb-0" {...props} />
+  ),
+  strong: (props: React.ComponentPropsWithoutRef<"strong">) => (
+    <strong className="font-semibold" {...props} />
+  ),
 };
 
 export default function HomePage() {
@@ -86,18 +120,25 @@ export default function HomePage() {
             </p>
           )}
 
-          {messages.map((m, i) => (
-            <div
-              key={i}
-              className={`rounded-lg px-3 py-2 text-sm ${
-                m.role === "user"
-                  ? "ml-auto max-w-[80%] bg-trei text-white"
-                  : "mr-auto max-w-[80%] bg-neutral-100 text-neutral-900"
-              }`}
-            >
-              {m.content}
-            </div>
-          ))}
+          {messages.map((m, i) =>
+            m.role === "user" ? (
+              <div
+                key={i}
+                className="ml-auto max-w-[80%] rounded-lg bg-trei px-3 py-2 text-sm text-white"
+              >
+                {m.content}
+              </div>
+            ) : (
+              <div
+                key={i}
+                className="mr-auto max-w-[95%] rounded-lg bg-neutral-100 px-3 py-2 text-sm text-neutral-900"
+              >
+                <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
+                  {m.content}
+                </ReactMarkdown>
+              </div>
+            )
+          )}
 
           {loading && (
             <div className="mr-auto max-w-[80%] rounded-lg bg-neutral-100 px-3 py-2 text-sm text-neutral-500">
