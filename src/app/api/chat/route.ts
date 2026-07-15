@@ -173,7 +173,11 @@ export async function POST(req: NextRequest) {
         : err;
     console.error("Error en /api/chat:", JSON.stringify(details));
     return NextResponse.json(
-      { error: "Ocurrio un error procesando la consulta." },
+      {
+        error: "Ocurrio un error procesando la consulta.",
+        // TEMPORAL: detalle de depuracion, quitar una vez resuelto el bug.
+        debug: details,
+      },
       { status: 500 }
     );
   }
