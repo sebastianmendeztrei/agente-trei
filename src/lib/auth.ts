@@ -54,6 +54,7 @@ export async function verifySessionToken(
   const parts = token.split(".");
   if (parts.length !== 2) return null;
   const [payloadB64, sigB64] = parts;
+  if (!payloadB64 || !sigB64) return null;
 
   try {
     const key = await getKey(secret);
