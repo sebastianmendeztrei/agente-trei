@@ -215,6 +215,12 @@ export async function POST(req: NextRequest) {
       if (!toolCalls || toolCalls.length === 0) {
         return NextResponse.json({
           reply: responseMessage.content ?? "",
+          // TEMPORAL: depuracion del caso "(sin respuesta)".
+          debug: {
+            finish_reason: choice.finish_reason,
+            usage: completion.usage,
+            iteration: i,
+          },
         });
       }
 
