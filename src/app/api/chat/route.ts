@@ -191,7 +191,7 @@ export async function POST(req: NextRequest) {
         : err;
     console.error("Error en /api/chat:", JSON.stringify(details));
     return NextResponse.json(
-      { error: "Ocurrio un error procesando la consulta.", debug: details },
+      { error: "Ocurrio un error procesando la consulta." },
       { status: 500 }
     );
   }
