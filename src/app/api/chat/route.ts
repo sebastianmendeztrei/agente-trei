@@ -21,8 +21,11 @@ Reglas:
 - Responde en espanol, de forma clara y concisa, citando las cifras relevantes.`;
 
 const MAX_TOOL_ITERATIONS = 6;
-// Limite duro de tokens de salida por respuesta del modelo, para controlar costo.
-const MAX_OUTPUT_TOKENS = 600;
+// Limite duro de tokens de salida por respuesta del modelo, para controlar
+// costo. gpt-5-nano gasta parte de este presupuesto en tokens de razonamiento
+// internos antes de producir la respuesta visible o el tool call, por eso el
+// limite tiene que ser generoso o la respuesta final sale vacia.
+const MAX_OUTPUT_TOKENS = 2000;
 
 // Cache en memoria del isolate de Cloudflare Workers: mientras el mismo
 // worker siga "caliente" (varias requests seguidas), evitamos volver a
