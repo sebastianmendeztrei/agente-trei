@@ -1,14 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifySessionToken, SESSION_COOKIE_NAME } from "@/lib/auth";
 
-// Protege toda la app (paginas y API) excepto las rutas de login/callback/
-// logout y los assets estaticos. Si no hay sesion valida:
-// - Para /api/*: devuelve 401 JSON (el fetch del chat lo puede mostrar como error).
-// - Para paginas: redirige a /api/auth/login, que a su vez redirige a Microsoft.
+// DESACTIVADO TEMPORALMENTE: el login con Microsoft Entra ID todavia no esta
+// configurado (faltan AZURE_AD_CLIENT_ID / AZURE_AD_TENANT_ID reales en
+// wrangler.jsonc y los secrets AZURE_AD_CLIENT_SECRET / SESSION_SECRET en
+// Cloudflare). Con el matcher vacio este middleware nunca se ejecuta, para
+// no romper el acceso al sitio mientras se termina esa configuracion. Una
+// vez completados esos datos, restaurar el matcher de abajo (comentado) y
+// hacer commit.
+//
+// matcher real a restaurar cuando este todo configurado:
+// matcher: ["/((?!api/auth|_next|favicon.ico|trei-logo.png).*)"],
 export const config = {
-  matcher: [
-    "/((?!api/auth|_next|favicon.ico|trei-logo.png).*)",
-  ],
+  matcher: [],
 };
 
 export async function middleware(req: NextRequest) {
