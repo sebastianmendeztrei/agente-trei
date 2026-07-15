@@ -121,7 +121,22 @@ desistimientos_cant/desistimientos_uf y neto_cant/neto_uf por "periodo"
   comentario explica que las reservas canceladas excluyen negocios que ya
   tienen una promesa cancelada registrada (para no duplicar el mismo caso
   contado como reserva y como promesa). Ten esto en cuenta si cruzas esta
-  tabla con ventas_pok o cierre_mensual.`;
+  tabla con ventas_pok o cierre_mensual.
+
+REGLA CRITICA sobre la tabla leads_pok (leads/clientes nuevos):
+- leads_pok NO es un snapshot diario: normalmente solo existe una
+  fecha_extraccion (la del ultimo refresh completo). NUNCA uses
+  fecha_extraccion para filtrar "leads/clientes nuevos de mayo" ni de ningun
+  periodo; esa columna no representa cuando entro el lead.
+- Para "cuantos leads/clientes nuevos entraron en <periodo>", usa SIEMPRE la
+  columna fecha_ingreso filtrando por el rango de fechas del periodo, y cuenta
+  con COUNT(DISTINCT id_cliente) (no COUNT(*), porque un mismo id_cliente
+  puede tener varias filas si tuvo mas de una visita/contacto, cada una con su
+  propio id_visita).
+- La columna estado de leads_pok NO es una etapa comercial ("nuevo",
+  "contactado", etc.): es un flag de calidad del dato (valores como "Bueno" o
+  "Con Problemas"). Nunca filtres por estado para responder preguntas sobre
+  leads nuevos.`;
 }
 
 const MAX_TOOL_ITERATIONS = 6;
