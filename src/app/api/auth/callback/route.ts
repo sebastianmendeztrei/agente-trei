@@ -10,7 +10,15 @@ function decodeIdTokenPayload(idToken: string): Record<string, unknown> {
   if (parts.length < 2 || !rawPayload) throw new Error("id_token invalido.");
   const base64 = rawPayload.replace(/-/g, "+").replace(/_/g, "/");
   const padded = base64 + "=".repeat((4 - (base64.length % 4)) % 4);
-  return JSON.parse(atob(padded));
+  // atob() devuelve un "binary string" (1 char = 1 byte), NO texto UTF-8
+  // decodificado. Si el payload tiene acentos/ñ (como el nombre del usuario),
+  // hay que reinterpretar esos bytes como UTF-8 explicitamente; si no,
+  // "Sebastián" queda como "SebastiÃ¡n".
+  const binary = atob(padded);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+  const json = new TextDecoder("utf-8").decode(bytes);
+  return JSON.parse(json);
 }
 
 export async function GET(req: NextRequest) {
