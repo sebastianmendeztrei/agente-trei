@@ -136,7 +136,23 @@ REGLA CRITICA sobre la tabla leads_pok (leads/clientes nuevos):
 - La columna estado de leads_pok NO es una etapa comercial ("nuevo",
   "contactado", etc.): es un flag de calidad del dato (valores como "Bueno" o
   "Con Problemas"). Nunca filtres por estado para responder preguntas sobre
-  leads nuevos.`;
+  leads nuevos.
+- ventas_pok NO tiene columna id_cliente. Para cruzar leads_pok con
+  ventas_pok (por ejemplo, para calcular tasa de conversion de leads a
+  reservas/promesas/escrituras), usa rut_cliente como clave de union en ambas
+  tablas, nunca id_cliente.
+- Para "tasa de conversion de leads a promesas/reservas/escrituras" de un
+  periodo: el denominador es COUNT(DISTINCT id_cliente) de leads_pok con
+  fecha_ingreso en ese periodo; el numerador es la cantidad de
+  promesas/reservas/escrituras de ese mismo periodo (preferentemente desde
+  cierre_mensual.promesas_cant / reservas_cant / escrituras_cant si el mes ya
+  cerro, sumando entre proyectos si se pide el total global; si el mes no ha
+  cerrado, cuenta DISTINCT rut_cliente en ventas_pok filtrando por la fecha de
+  evento correspondiente). Muestra ambos numeros (leads y promesas) ademas del
+  porcentaje, y aclara que son conteos de fuentes distintas (leads por
+  fecha_ingreso, promesas por fecha_promesa o por cierre_mensual), no un join
+  estricto uno-a-uno salvo que el usuario pida explicitamente el cruce por
+  rut_cliente.`;
 }
 
 const MAX_TOOL_ITERATIONS = 6;
