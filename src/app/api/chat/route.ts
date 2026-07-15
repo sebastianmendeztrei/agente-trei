@@ -26,6 +26,13 @@ Contexto de fecha: hoy es ${todayCL} (zona horaria America/Santiago). Usa esta
 fecha como referencia para "este mes", "el mes pasado", o para resolver un
 mes mencionado sin año.
 
+Contexto de conversacion: puedes recibir mensajes previos de esta misma
+conversacion (preguntas anteriores del usuario y tus respuestas). Usalos para
+resolver referencias como "¿y en abril?", "¿y ese mismo proyecto pero en
+mayo?" o "compara con el mes anterior", sin pedirle al usuario que repita todo
+el contexto. Si la pregunta actual es independiente de lo anterior, ignora el
+historial.
+
 Reglas generales:
 - Se inteligente resolviendo ambiguedades menores en vez de preguntarle al
   usuario por detalles que puedes deducir o verificar vos mismo con una
@@ -74,6 +81,25 @@ Reglas generales:
   como una tabla en Markdown (con encabezados "| columna | columna |") en vez
   de una lista de texto plano. Para una sola cifra o dato, responde en
   prosa normal, sin tabla.
+- Comparacion automatica de periodos: cuando te pregunten por un total o
+  metrica de un periodo especifico (mes, semana, etc.) sin que el usuario
+  pida explicitamente una comparacion, igual traé tambien el mismo dato del
+  periodo inmediatamente anterior equivalente (mes anterior si es un mes,
+  semana anterior si es una semana) con UNA consulta adicional, y agregá al
+  final una linea breve tipo "(vs. mes anterior: X, variacion: +N% / -N%)".
+  No hace falta preguntarle al usuario si quiere la comparacion, hacela
+  directo salvo que la pregunta ya sea explicitamente sobre un solo periodo
+  puntual sin sentido de tendencia (por ejemplo "cuantas unidades tiene el
+  proyecto X" no necesita comparacion).
+- Graficos: cuando la respuesta involucre una serie de 3 o mas puntos en el
+  tiempo (por ejemplo ventas o leads mes a mes de los ultimos N meses,
+  evolucion de un indicador), ademas de la tabla o prosa, incluí al final de
+  tu respuesta un bloque de codigo con lenguaje "chart" (\`\`\`chart) conteniendo
+  un JSON con este formato exacto:
+  {"type": "bar" | "line", "title": "string corto", "labels": ["ene", "feb", ...], "values": [123, 456, ...]}
+  Un solo bloque chart por respuesta, con datos reales obtenidos de la base
+  (nunca inventados). No uses este bloque para una sola cifra o para listas
+  que no sean series temporales.
 
 REGLA CRITICA sobre la tabla ventas_pok (evita errores graves de calculo):
 ventas_pok es una FOTO DIARIA del inventario/portafolio, no una tabla de
@@ -236,8 +262,36 @@ async function executeTool(
   return JSON.stringify({ error: `Tool desconocida: ${name}` });
 }
 
+// Cuantos turnos previos (pares pregunta/respuesta) se mandan como contexto.
+// Acotado para controlar el costo: no hace falta todo el historial, solo lo
+// suficiente para resolver referencias tipo "¿y en abril?" o "¿y el proyecto X?".
+const MAX_HISTORY_MESSAGES = 12;
+
+type HistoryMessage = { role: "user" | "assistant"; content: string };
+
+function sanitizeHistory(raw: unknown): HistoryMessage[] {
+  if (!Array.isArray(raw)) return [];
+  const cleaned: HistoryMessage[] = [];
+  for (const item of raw) {
+    if (
+      item &&
+      typeof item === "object" &&
+      (item as { role?: unknown }).role &&
+      ((item as { role?: unknown }).role === "user" || (item as { role?: unknown }).role === "assistant") &&
+      typeof (item as { content?: unknown }).content === "string"
+    ) {
+      cleaned.push({
+        role: (item as { role: "user" | "assistant" }).role,
+        content: (item as { content: string }).content,
+      });
+    }
+  }
+  // Nos quedamos solo con los ultimos N mensajes.
+  return cleaned.slice(-MAX_HISTORY_MESSAGES);
+}
+
 export async function POST(req: NextRequest) {
-  let body: { message?: string };
+  let body: { message?: string; history?: unknown };
   try {
     body = await req.json();
   } catch {
@@ -251,6 +305,8 @@ export async function POST(req: NextRequest) {
       { status: 400 }
     );
   }
+
+  const history = sanitizeHistory(body.history);
 
   let openai: OpenAI;
   try {
@@ -267,6 +323,10 @@ export async function POST(req: NextRequest) {
 
   const messages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [
     { role: "system", content: buildSystemPrompt() },
+    ...history.map((h): OpenAI.Chat.Completions.ChatCompletionMessageParam => ({
+      role: h.role,
+      content: h.content,
+    })),
     { role: "user", content: userMessage },
   ];
   const executedQueries: string[] = [];

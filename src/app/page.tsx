@@ -53,6 +53,107 @@ async function exportTableToExcel(content: string, question: string) {
   XLSX.writeFile(workbook, `${safeName}.xlsx`);
 }
 
+type ChartSpec = {
+  type: "bar" | "line";
+  title?: string;
+  labels: string[];
+  values: number[];
+};
+
+// Extrae un bloque ```chart { ... } ``` del contenido (si existe) y devuelve
+// tanto los datos parseados como el texto sin ese bloque (para no mostrarlo
+// dos veces: una como grafico, otra como bloque de codigo crudo).
+function extractChart(content: string): { chart: ChartSpec | null; text: string } {
+  const match = content.match(/```chart\s*([\s\S]*?)```/);
+  if (!match) return { chart: null, text: content };
+  try {
+    const parsed = JSON.parse(match[1] ?? "");
+    if (
+      parsed &&
+      (parsed.type === "bar" || parsed.type === "line") &&
+      Array.isArray(parsed.labels) &&
+      Array.isArray(parsed.values)
+    ) {
+      const text = content.replace(match[0], "").trim();
+      return { chart: parsed as ChartSpec, text };
+    }
+  } catch {
+    // JSON invalido: lo dejamos como texto normal, no rompemos la respuesta
+  }
+  return { chart: null, text: content };
+}
+
+// Grafico SVG simple (barras o lineas), sin dependencias externas.
+function SimpleChart({ spec }: { spec: ChartSpec }) {
+  const width = 560;
+  const height = 220;
+  const padding = { top: 20, right: 16, bottom: 32, left: 44 };
+  const innerW = width - padding.left - padding.right;
+  const innerH = height - padding.top - padding.bottom;
+
+  const max = Math.max(...spec.values, 0);
+  const min = Math.min(...spec.values, 0);
+  const range = max - min || 1;
+
+  const scaleY = (v: number) => padding.top + innerH - ((v - min) / range) * innerH;
+  const stepX = spec.labels.length > 1 ? innerW / (spec.labels.length - 1) : innerW;
+
+  return (
+    <div className="my-2 overflow-x-auto rounded-md border border-neutral-200 bg-white p-2">
+      {spec.title && <p className="mb-1 px-1 text-xs font-medium text-neutral-600">{spec.title}</p>}
+      <svg viewBox={`0 0 ${width} ${height}`} className="h-auto w-full">
+        <line
+          x1={padding.left}
+          y1={padding.top + innerH}
+          x2={width - padding.right}
+          y2={padding.top + innerH}
+          stroke="#e5e5e5"
+        />
+        {spec.type === "bar" &&
+          spec.values.map((v, i) => {
+            const barW = (innerW / spec.values.length) * 0.6;
+            const x = padding.left + (innerW / spec.values.length) * i + (innerW / spec.values.length - barW) / 2;
+            const y = scaleY(v);
+            return (
+              <rect
+                key={i}
+                x={x}
+                y={Math.min(y, scaleY(0))}
+                width={barW}
+                height={Math.abs(scaleY(0) - y)}
+                fill="#E12844"
+                rx={2}
+              />
+            );
+          })}
+        {spec.type === "line" && (
+          <polyline
+            fill="none"
+            stroke="#E12844"
+            strokeWidth={2}
+            points={spec.values.map((v, i) => `${padding.left + stepX * i},${scaleY(v)}`).join(" ")}
+          />
+        )}
+        {spec.type === "line" &&
+          spec.values.map((v, i) => (
+            <circle key={i} cx={padding.left + stepX * i} cy={scaleY(v)} r={3} fill="#E12844" />
+          ))}
+        {spec.labels.map((label, i) => {
+          const x =
+            spec.type === "bar"
+              ? padding.left + (innerW / spec.labels.length) * (i + 0.5)
+              : padding.left + stepX * i;
+          return (
+            <text key={i} x={x} y={height - 8} fontSize={10} textAnchor="middle" fill="#737373">
+              {label}
+            </text>
+          );
+        })}
+      </svg>
+    </div>
+  );
+}
+
 // Componentes de Markdown con estilo Tailwind, usados solo para las
 // respuestas del asistente (permite que el modelo devuelva tablas cuando
 // corresponda, por ejemplo listados de ventas, personas o proyectos).
@@ -118,10 +219,14 @@ export default function HomePage() {
     setLoading(true);
 
     try {
+      // Mandamos el historial (pregunta/respuesta previas) para que el
+      // asistente pueda resolver referencias tipo "¿y en abril?" sin que el
+      // usuario tenga que repetir todo el contexto.
+      const history = messages.map((m) => ({ role: m.role, content: m.content }));
       const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: text }),
+        body: JSON.stringify({ message: text, history }),
       });
       const data = await res.json();
 
@@ -282,21 +387,28 @@ export default function HomePage() {
             </div>
           )}
 
-          {messages.map((m, i) =>
-            m.role === "user" ? (
-              <div
-                key={i}
-                className="ml-auto max-w-[80%] rounded-lg bg-trei px-3 py-2 text-sm text-white"
-              >
-                {m.content}
-              </div>
-            ) : (
+          {messages.map((m, i) => {
+            if (m.role === "user") {
+              return (
+                <div
+                  key={i}
+                  className="ml-auto max-w-[80%] rounded-lg bg-trei px-3 py-2 text-sm text-white"
+                >
+                  {m.content}
+                </div>
+              );
+            }
+
+            const { chart, text } = extractChart(m.content);
+
+            return (
               <div
                 key={i}
                 className="mr-auto max-w-[95%] rounded-lg bg-neutral-100 px-3 py-2 text-sm text-neutral-900"
               >
+                {chart && <SimpleChart spec={chart} />}
                 <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
-                  {m.content}
+                  {text}
                 </ReactMarkdown>
 
                 <div className="mt-2 flex items-center gap-3 border-t border-neutral-200 pt-2">
@@ -323,10 +435,10 @@ export default function HomePage() {
                   {m.feedback === "down" && (
                     <span className="text-xs text-neutral-400">Gracias, lo vamos a revisar</span>
                   )}
-                  {parseMarkdownTable(m.content) && (
+                  {parseMarkdownTable(text) && (
                     <button
                       type="button"
-                      onClick={() => exportTableToExcel(m.content, m.question ?? "respuesta")}
+                      onClick={() => exportTableToExcel(text, m.question ?? "respuesta")}
                       className="ml-auto text-xs font-medium text-neutral-500 hover:text-trei hover:underline"
                     >
                       Descargar Excel
@@ -334,8 +446,8 @@ export default function HomePage() {
                   )}
                 </div>
               </div>
-            )
-          )}
+            );
+          })}
 
           {loading && (
             <div className="mr-auto max-w-[80%] rounded-lg bg-neutral-100 px-3 py-2 text-sm text-neutral-500">
