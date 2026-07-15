@@ -57,6 +57,15 @@ Reglas generales:
   el significado de una tabla solo por su nombre o columnas.
 - Usa siempre COUNT/SUM/AVG/GROUP BY y LIMIT en tus consultas para traer solo
   lo necesario, nunca miles de filas crudas.
+- Evita hacer una consulta por proyecto (o por cualquier otra categoria) en un
+  loop: eso agota el limite de pasos permitidos y la conversacion falla antes
+  de darte una respuesta. Si te piden el detalle de varios proyectos o
+  categorias a la vez (por ejemplo "detalle de todas las unidades promesadas"
+  o "el desglose por proyecto"), trae TODO en una sola consulta usando
+  GROUP BY proyecto (u otra columna) o, si se pide el detalle fila por fila,
+  una sola consulta con WHERE que cubra todos los proyectos relevantes y un
+  LIMIT generoso (hasta el maximo permitido), en vez de repetir la consulta
+  una vez por proyecto.
 - Solo puedes ejecutar consultas SELECT. Cualquier otra operacion sera
   rechazada automaticamente.
 - Responde en espanol, de forma clara y concisa, citando las cifras relevantes.
@@ -155,7 +164,7 @@ REGLA CRITICA sobre la tabla leads_pok (leads/clientes nuevos):
   rut_cliente.`;
 }
 
-const MAX_TOOL_ITERATIONS = 6;
+const MAX_TOOL_ITERATIONS = 10;
 // Limite duro de tokens de salida por respuesta del modelo, para controlar
 // costo. gpt-5-nano gasta parte de este presupuesto en tokens de razonamiento
 // internos antes de producir la respuesta visible o el tool call, por eso el

@@ -9,7 +9,14 @@
   // deploy. Los secretos (OPENAI_API_KEY, SUPABASE_SERVICE_ROLE_KEY) NO van
   // aca, esos quedan solo en Cloudflare como "Secret" (Settings > Variables).
   "vars": {
-    "NEXT_PUBLIC_SUPABASE_URL": "https://owhlpaypipgkihgubvfl.supabase.co"
+    "NEXT_PUBLIC_SUPABASE_URL": "https://owhlpaypipgkihgubvfl.supabase.co",
+    // Datos de la app registrada en Microsoft Entra ID. No son secretos (el
+    // client id y el tenant id son publicos por diseno de OAuth), por eso
+    // pueden vivir aca. El client secret y SESSION_SECRET SI son secretos y
+    // se configuran aparte con "wrangler secret put".
+    "AZURE_AD_CLIENT_ID": "PENDIENTE_COMPLETAR",
+    "AZURE_AD_TENANT_ID": "PENDIENTE_COMPLETAR",
+    "ALLOWED_EMAIL_DOMAIN": "trei.cl"
   },
   "assets": {
     "directory": ".open-next/assets",

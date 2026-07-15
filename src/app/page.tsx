@@ -48,11 +48,19 @@ export default function HomePage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showInfo, setShowInfo] = useState(false);
+  const [user, setUser] = useState<{ email: string; name: string } | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, loading]);
+
+  useEffect(() => {
+    fetch("/api/auth/me")
+      .then((res) => (res.ok ? res.json() : { user: null }))
+      .then((data) => setUser(data.user))
+      .catch(() => setUser(null));
+  }, []);
 
   async function sendMessage(e: React.FormEvent) {
     e.preventDefault();
@@ -109,6 +117,17 @@ export default function HomePage() {
               Inteligencia comercial de Trei Inmobiliaria
             </p>
           </div>
+          {user && (
+            <div className="hidden shrink-0 items-center gap-2 sm:flex">
+              <span className="text-xs text-neutral-500">{user.name}</span>
+              <a
+                href="/api/auth/logout"
+                className="text-xs font-medium text-neutral-400 hover:text-trei hover:underline"
+              >
+                Cerrar sesión
+              </a>
+            </div>
+          )}
           <button
             type="button"
             onClick={() => setShowInfo((v) => !v)}
@@ -141,6 +160,11 @@ export default function HomePage() {
                 de datos y el resultado se resume con inteligencia artificial
                 (OpenAI). Las cifras siempre provienen de la base, nunca son
                 inventadas.
+              </p>
+              <p>
+                <strong className="text-neutral-800">Acceso:</strong> el
+                asistente solo esta disponible para cuentas corporativas de
+                Trei (inicio de sesion con Microsoft Entra ID).
               </p>
               <p>
                 <strong className="text-neutral-800">MVP:</strong> esta herramienta
