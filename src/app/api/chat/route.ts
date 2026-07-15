@@ -111,6 +111,12 @@ export async function POST(req: NextRequest) {
       });
 
       const choice = completion.choices[0];
+      if (!choice) {
+        return NextResponse.json(
+          { error: "OpenAI no devolvio ninguna respuesta." },
+          { status: 500 }
+        );
+      }
       const responseMessage = choice.message;
       messages.push(responseMessage);
 
