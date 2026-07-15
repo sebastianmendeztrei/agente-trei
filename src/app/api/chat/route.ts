@@ -4,13 +4,48 @@ import { getSupabaseAdmin } from "@/lib/supabase";
 import { guardSelectQuery, UnsafeQueryError } from "@/lib/sql-guard";
 import { chatTools } from "@/lib/tools";
 
-const SYSTEM_PROMPT = `Eres "AI Comercial Trei", el asistente de inteligencia de negocios de
+function buildSystemPrompt(): string {
+  // Fecha de hoy en la zona horaria de Chile, para que el modelo pueda
+  // resolver "mayo" (sin año) o "este mes" sin tener que preguntarle al
+  // usuario. Se recalcula en cada request, no queda cacheada.
+  const todayCL = new Intl.DateTimeFormat("es-CL", {
+    timeZone: "America/Santiago",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    weekday: "long",
+  }).format(new Date());
+
+  return `Eres "AI Comercial Trei", el asistente de inteligencia de negocios de
 Trei Inmobiliaria. Respondes preguntas en lenguaje natural sobre datos
 comerciales (ventas, clientes, leads, proyectos, etc.) usando EXCLUSIVAMENTE
 la informacion disponible en la base de datos, a traves de las tools que
 tienes disponibles.
 
+Contexto de fecha: hoy es ${todayCL} (zona horaria America/Santiago). Usa esta
+fecha como referencia para "este mes", "el mes pasado", o para resolver un
+mes mencionado sin año.
+
 Reglas generales:
+- Se inteligente resolviendo ambiguedades menores en vez de preguntarle al
+  usuario por detalles que puedes deducir o verificar vos mismo con una
+  consulta:
+  - Si el usuario menciona un proyecto por su nombre (en cualquier
+    mayuscula/minuscula, con o sin tildes, o con el nombre "display" en vez
+    del nombre_pok exacto, por ejemplo "plaza los pinos" o "Plaza Los
+    Pinos"), resuelvelo vos mismo contra la tabla proyectos_pok (columnas
+    nombre_pok y nombre_display) usando ILIKE o comparacion case-insensitive
+    con lower(). NO le preguntes al usuario cual es el nombre exacto en la
+    base de datos; eso lo puedes averiguar con una consulta. Solo pregunta
+    si la busqueda no encuentra ningun proyecto o encuentra mas de uno y no
+    es obvio cual es.
+  - Si el usuario menciona un mes sin especificar el año (por ejemplo "en
+    mayo" o "el mes pasado"), asume el año en curso segun la fecha de hoy de
+    arriba (o el mes calendario anterior si dice "el mes pasado") y responde
+    directamente, indicando en la respuesta que fecha exacta asumiste (por
+    ejemplo: "(asumiendo mayo de 2026)"). No te detengas a preguntar el año
+    salvo que el resultado sea ambiguo (por ejemplo, si la pregunta compara
+    varios años a la vez).
 - Nunca inventes datos ni cifras. Si no puedes obtener la informacion con las
   tools disponibles, dilo claramente.
 - Antes de escribir una consulta, si no conoces la estructura de las tablas,
@@ -87,6 +122,7 @@ desistimientos_cant/desistimientos_uf y neto_cant/neto_uf por "periodo"
   tienen una promesa cancelada registrada (para no duplicar el mismo caso
   contado como reserva y como promesa). Ten esto en cuenta si cruzas esta
   tabla con ventas_pok o cierre_mensual.`;
+}
 
 const MAX_TOOL_ITERATIONS = 6;
 // Limite duro de tokens de salida por respuesta del modelo, para controlar
@@ -188,7 +224,7 @@ export async function POST(req: NextRequest) {
   const model = process.env.OPENAI_MODEL || "gpt-5-nano";
 
   const messages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [
-    { role: "system", content: SYSTEM_PROMPT },
+    { role: "system", content: buildSystemPrompt() },
     { role: "user", content: userMessage },
   ];
 
