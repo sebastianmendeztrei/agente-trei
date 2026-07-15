@@ -32,7 +32,6 @@ const FORBIDDEN_KEYWORDS = [
   "rollback",
   "--",
   "/*",
-  ";",
 ];
 
 export const MAX_ROWS_PER_QUERY = Number(process.env.MAX_ROWS_PER_QUERY ?? 200);
@@ -45,7 +44,11 @@ export class UnsafeQueryError extends Error {}
  * ejecutar (con LIMIT agregado si hacia falta).
  */
 export function guardSelectQuery(rawQuery: string): string {
-  const query = rawQuery.trim();
+  // Los modelos suelen terminar el SQL con ";" de forma inofensiva. Lo
+  // quitamos ANTES de validar para no rechazar queries legitimas; un ";"
+  // que quede en medio de la consulta (multi-sentencia real) se sigue
+  // bloqueando mas abajo.
+  const query = rawQuery.trim().replace(/;\s*$/, "");
 
   if (!query) {
     throw new UnsafeQueryError("La consulta esta vacia.");
