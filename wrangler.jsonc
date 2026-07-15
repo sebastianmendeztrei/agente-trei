@@ -14,8 +14,8 @@
     // client id y el tenant id son publicos por diseno de OAuth), por eso
     // pueden vivir aca. El client secret y SESSION_SECRET SI son secretos y
     // se configuran aparte con "wrangler secret put".
-    "AZURE_AD_CLIENT_ID": "PENDIENTE_COMPLETAR",
-    "AZURE_AD_TENANT_ID": "PENDIENTE_COMPLETAR",
+    "AZURE_AD_CLIENT_ID": "f4ab0360-738e-4ed8-9bb3-6adc56bc4c35",
+    "AZURE_AD_TENANT_ID": "31d84bdc-eb27-41cc-8885-7ad2ddc584c0",
     "ALLOWED_EMAIL_DOMAIN": "trei.cl"
   },
   "assets": {
