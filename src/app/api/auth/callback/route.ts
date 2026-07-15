@@ -61,7 +61,7 @@ export async function GET(req: NextRequest) {
           grant_type: "authorization_code",
           code,
           redirect_uri: redirectUri,
-          scope: "openid profile email",
+          scope: "openid profile email User.Read",
         }),
       }
     );
@@ -76,7 +76,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "No se pudo validar el inicio de sesion con Microsoft." }, { status: 401 });
   }
 
-  const tokenData = (await tokenRes.json()) as { id_token?: string };
+  const tokenData = (await tokenRes.json()) as { id_token?: string; access_token?: string };
   if (!tokenData.id_token) {
     return NextResponse.json({ error: "Microsoft no devolvio un id_token." }, { status: 401 });
   }
@@ -109,8 +109,33 @@ export async function GET(req: NextRequest) {
     );
   }
 
+  // El cargo (jobTitle) no viene en el id_token con el scope basico
+  // (openid profile email); hay que pedirlo aparte a Microsoft Graph con el
+  // access_token. Si falla (permisos, cuenta sin cargo cargado, etc.) no
+  // bloqueamos el login, simplemente queda sin cargo.
+  let jobTitle: string | undefined;
+  if (tokenData.access_token) {
+    try {
+      const graphRes = await fetch(
+        "https://graph.microsoft.com/v1.0/me?$select=jobTitle",
+        { headers: { Authorization: `Bearer ${tokenData.access_token}` } }
+      );
+      if (graphRes.ok) {
+        const graphData = (await graphRes.json()) as { jobTitle?: string | null };
+        jobTitle = graphData.jobTitle ?? undefined;
+      }
+    } catch (err) {
+      console.error("No se pudo obtener el cargo desde Microsoft Graph:", err);
+    }
+  }
+
   const sessionToken = await createSessionToken(
-    { email, name, exp: Math.floor(Date.now() / 1000) + SESSION_TTL_SECONDS },
+    {
+      email,
+      name,
+      jobTitle,
+      exp: Math.floor(Date.now() / 1000) + SESSION_TTL_SECONDS,
+    },
     sessionSecret
   );
 

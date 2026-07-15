@@ -91,7 +91,9 @@ export default function HomePage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showInfo, setShowInfo] = useState(false);
-  const [user, setUser] = useState<{ email: string; name: string } | null>(null);
+  const [user, setUser] = useState<{ email: string; name: string; jobTitle?: string | null } | null>(
+    null
+  );
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -191,7 +193,10 @@ export default function HomePage() {
           </div>
           {user && (
             <div className="hidden shrink-0 items-center gap-2 sm:flex">
-              <span className="text-xs text-neutral-500">{user.name}</span>
+              <span className="text-xs text-neutral-500">
+                {user.name}
+                {user.jobTitle && <span className="text-neutral-400"> · {user.jobTitle}</span>}
+              </span>
               <a
                 href="/api/auth/logout"
                 className="text-xs font-medium text-neutral-400 hover:text-trei hover:underline"

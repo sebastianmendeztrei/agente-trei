@@ -21,7 +21,9 @@ export async function GET(req: NextRequest) {
   authUrl.searchParams.set("response_type", "code");
   authUrl.searchParams.set("redirect_uri", redirectUri);
   authUrl.searchParams.set("response_mode", "query");
-  authUrl.searchParams.set("scope", "openid profile email");
+  // User.Read (Microsoft Graph) es necesario para poder consultar despues
+  // el cargo (jobTitle) del usuario en el callback.
+  authUrl.searchParams.set("scope", "openid profile email User.Read");
   // Reutilizamos "state" solo para recordar a donde volver despues del
   // login; no se usa como token anti-CSRF critico porque el intercambio de
   // codigo por token requiere el client_secret (server-to-server).

@@ -34,6 +34,7 @@ function base64UrlToBytes(input: string): Uint8Array {
 export type SessionPayload = {
   email: string;
   name: string;
+  jobTitle?: string;
   exp: number; // unix seconds
 };
 
