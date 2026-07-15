@@ -4,8 +4,6 @@ import { getSupabaseAdmin } from "@/lib/supabase";
 import { guardSelectQuery, UnsafeQueryError } from "@/lib/sql-guard";
 import { chatTools } from "@/lib/tools";
 
-export const runtime = "edge";
-
 const SYSTEM_PROMPT = `Eres un asistente de inteligencia de negocios para una empresa.
 Respondes preguntas en lenguaje natural sobre datos comerciales (ventas, clientes,
 leads, proyectos, etc.) usando EXCLUSIVAMENTE la informacion disponible en la
