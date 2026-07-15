@@ -21,6 +21,15 @@ Reglas:
 - Responde en espanol, de forma clara y concisa, citando las cifras relevantes.`;
 
 const MAX_TOOL_ITERATIONS = 6;
+// Limite duro de tokens de salida por respuesta del modelo, para controlar costo.
+const MAX_OUTPUT_TOKENS = 600;
+
+// Cache en memoria del isolate de Cloudflare Workers: mientras el mismo
+// worker siga "caliente" (varias requests seguidas), evitamos volver a
+// pedirle el esquema a Supabase y volver a mandarselo al modelo cada vez.
+// Se pierde en cold start, pero ahorra llamadas en el caso comun.
+let schemaCache: { data: string; expiresAt: number } | null = null;
+const SCHEMA_CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutos
 
 function getOpenAIClient() {
   const apiKey = process.env.OPENAI_API_KEY;
@@ -44,11 +53,16 @@ async function executeTool(
   const supabase = getSupabaseAdmin();
 
   if (name === "get_schema") {
+    if (schemaCache && schemaCache.expiresAt > Date.now()) {
+      return schemaCache.data;
+    }
     const { data, error } = await supabase.rpc("get_public_schema");
     if (error) {
       return JSON.stringify({ error: error.message });
     }
-    return JSON.stringify(data);
+    const serialized = JSON.stringify(data);
+    schemaCache = { data: serialized, expiresAt: Date.now() + SCHEMA_CACHE_TTL_MS };
+    return serialized;
   }
 
   if (name === "run_select_query") {
@@ -113,6 +127,7 @@ export async function POST(req: NextRequest) {
         model,
         messages,
         tools: chatTools,
+        max_completion_tokens: MAX_OUTPUT_TOKENS,
       });
 
       const choice = completion.choices[0];
@@ -173,11 +188,7 @@ export async function POST(req: NextRequest) {
         : err;
     console.error("Error en /api/chat:", JSON.stringify(details));
     return NextResponse.json(
-      {
-        error: "Ocurrio un error procesando la consulta.",
-        // TEMPORAL: detalle de depuracion, quitar una vez resuelto el bug.
-        debug: details,
-      },
+      { error: "Ocurrio un error procesando la consulta." },
       { status: 500 }
     );
   }

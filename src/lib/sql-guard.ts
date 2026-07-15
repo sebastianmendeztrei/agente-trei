@@ -60,9 +60,18 @@ export function guardSelectQuery(rawQuery: string): string {
   }
 
   for (const keyword of FORBIDDEN_KEYWORDS) {
-    if (normalized.includes(keyword)) {
+    const trimmed = keyword.trim();
+    // Los simbolos (--, /*, ;) se buscan como substring literal; las
+    // palabras SQL se buscan como palabra completa para no disparar falsos
+    // positivos con columnas como "apellido" (contiene "do") o "codigo".
+    const isSymbol = /^[^a-z]+$/i.test(trimmed);
+    const matches = isSymbol
+      ? normalized.includes(trimmed)
+      : new RegExp(`\\b${trimmed}\\b`, "i").test(normalized);
+
+    if (matches) {
       throw new UnsafeQueryError(
-        `La consulta contiene una operacion no permitida: "${keyword.trim()}".`
+        `La consulta contiene una operacion no permitida: "${trimmed}".`
       );
     }
   }
