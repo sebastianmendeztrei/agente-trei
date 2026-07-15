@@ -20,6 +20,11 @@
   },
   "assets": {
     "directory": ".open-next/assets",
-    "binding": "ASSETS"
+    "binding": "ASSETS",
+    // Necesario para que TODAS las requests (incluidas paginas estaticas)
+    // pasen por el Worker y por lo tanto por el middleware de autenticacion.
+    // Sin esto, Cloudflare sirve los assets directo desde el CDN y el login
+    // con Microsoft Entra ID nunca se dispara.
+    "run_worker_first": true
   }
 }
