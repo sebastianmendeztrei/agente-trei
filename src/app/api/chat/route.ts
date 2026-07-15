@@ -27,7 +27,14 @@ function getOpenAIClient() {
   if (!apiKey) {
     throw new Error("Falta la variable de entorno OPENAI_API_KEY.");
   }
-  return new OpenAI({ apiKey });
+  return new OpenAI({
+    apiKey,
+    // En el runtime de Cloudflare Workers hay que usar explicitamente el
+    // fetch global; el SDK de OpenAI puede fallar con "Connection error"
+    // si intenta resolver su propio cliente HTTP.
+    fetch: (...args: Parameters<typeof fetch>) => fetch(...args),
+    maxRetries: 1,
+  });
 }
 
 async function executeTool(
@@ -152,7 +159,19 @@ export async function POST(req: NextRequest) {
       { status: 500 }
     );
   } catch (err) {
-    console.error(err);
+    const details =
+      err instanceof Error
+        ? {
+            name: err.name,
+            message: err.message,
+            cause:
+              err.cause instanceof Error
+                ? { name: err.cause.name, message: err.cause.message }
+                : err.cause,
+            stack: err.stack,
+          }
+        : err;
+    console.error("Error en /api/chat:", JSON.stringify(details));
     return NextResponse.json(
       { error: "Ocurrio un error procesando la consulta." },
       { status: 500 }
