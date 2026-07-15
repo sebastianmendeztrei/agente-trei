@@ -47,6 +47,7 @@ export default function HomePage() {
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showInfo, setShowInfo] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -100,7 +101,7 @@ export default function HomePage() {
             className="h-9 w-auto"
             priority
           />
-          <div className="border-l border-neutral-200 pl-3">
+          <div className="flex-1 border-l border-neutral-200 pl-3">
             <h1 className="text-lg font-medium leading-tight text-neutral-900">
               AI Comercial <span className="text-trei">Trei</span>
             </h1>
@@ -108,7 +109,51 @@ export default function HomePage() {
               Inteligencia comercial de Trei Inmobiliaria
             </p>
           </div>
+          <button
+            type="button"
+            onClick={() => setShowInfo((v) => !v)}
+            aria-expanded={showInfo}
+            aria-label="Información sobre este asistente"
+            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-neutral-300 text-xs font-semibold text-neutral-500 transition-colors hover:border-trei hover:text-trei"
+          >
+            i
+          </button>
         </div>
+
+        {showInfo && (
+          <div className="border-t border-neutral-200 bg-neutral-50">
+            <div className="mx-auto max-w-3xl space-y-2 px-6 py-4 text-xs leading-relaxed text-neutral-600">
+              <p>
+                <strong className="text-neutral-800">Qué información entrega:</strong>{" "}
+                datos comerciales de Trei Inmobiliaria (leads, reservas, promesas,
+                escrituras, cierres mensuales y proyectos).
+              </p>
+              <p>
+                <strong className="text-neutral-800">De dónde se obtiene:</strong>{" "}
+                de la base de datos interna que centraliza la información comercial
+                de la empresa. El asistente solo puede leer datos, nunca
+                modificarlos.
+              </p>
+              <p>
+                <strong className="text-neutral-800">Cómo se procesa:</strong>{" "}
+                cada pregunta se traduce automáticamente en una consulta a la base
+                de datos y el resultado se resume con inteligencia artificial
+                (OpenAI). Las cifras siempre provienen de la base, nunca son
+                inventadas.
+              </p>
+              <p>
+                <strong className="text-neutral-800">MVP:</strong> esta herramienta
+                está en fase de prueba (MVP) y puede tener errores o límites de
+                cobertura. Ante cualquier duda, resultado que no cuadre, o
+                feedback de uso, escribir a{" "}
+                <a href="mailto:smendez@trei.cl" className="font-medium text-trei hover:underline">
+                  smendez@trei.cl
+                </a>{" "}
+                (Analista de Control de Gestión).
+              </p>
+            </div>
+          </div>
+        )}
       </header>
 
       <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col p-6">
