@@ -199,6 +199,12 @@ export async function POST(req: NextRequest) {
         messages,
         tools: chatTools,
         max_completion_tokens: MAX_OUTPUT_TOKENS,
+        // "low": este asistente responde preguntas de negocio con tool
+        // calling explicito, no necesita razonamiento profundo. Con el
+        // default el modelo podia gastar TODO el presupuesto de tokens en
+        // razonamiento interno y devolver una respuesta vacia
+        // (finish_reason "length"). Bajar el esfuerzo tambien reduce costo.
+        reasoning_effort: "low",
       });
 
       const choice = completion.choices[0];
@@ -213,14 +219,20 @@ export async function POST(req: NextRequest) {
 
       const toolCalls = responseMessage.tool_calls;
       if (!toolCalls || toolCalls.length === 0) {
+        // El modelo se quedo sin tokens de salida antes de escribir una
+        // respuesta visible (comun si el resultado a resumir es muy grande).
+        // Avisar en vez de devolver una respuesta vacia silenciosa.
+        if (!responseMessage.content && choice.finish_reason === "length") {
+          return NextResponse.json(
+            {
+              error:
+                "La respuesta era demasiado larga para procesarla completa. Intenta acotar la pregunta (por ejemplo, agregando un LIMIT o pidiendo menos registros a la vez).",
+            },
+            { status: 500 }
+          );
+        }
         return NextResponse.json({
           reply: responseMessage.content ?? "",
-          // TEMPORAL: depuracion del caso "(sin respuesta)".
-          debug: {
-            finish_reason: choice.finish_reason,
-            usage: completion.usage,
-            iteration: i,
-          },
         });
       }
 
