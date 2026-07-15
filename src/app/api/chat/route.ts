@@ -195,7 +195,8 @@ function getOpenAIClient() {
 
 async function executeTool(
   name: string,
-  args: Record<string, unknown>
+  args: Record<string, unknown>,
+  executedQueries: string[]
 ): Promise<string> {
   const supabase = getSupabaseAdmin();
 
@@ -216,6 +217,7 @@ async function executeTool(
     const rawQuery = String(args.query ?? "");
     try {
       const safeQuery = guardSelectQuery(rawQuery);
+      executedQueries.push(safeQuery);
       const { data, error } = await supabase.rpc("execute_readonly_query", {
         query: safeQuery,
       });
@@ -267,6 +269,7 @@ export async function POST(req: NextRequest) {
     { role: "system", content: buildSystemPrompt() },
     { role: "user", content: userMessage },
   ];
+  const executedQueries: string[] = [];
 
   try {
     for (let i = 0; i < MAX_TOOL_ITERATIONS; i++) {
@@ -309,6 +312,7 @@ export async function POST(req: NextRequest) {
         }
         return NextResponse.json({
           reply: responseMessage.content ?? "",
+          executedQueries,
         });
       }
 
@@ -321,7 +325,7 @@ export async function POST(req: NextRequest) {
           // args invalidos, se ejecuta con objeto vacio
         }
 
-        const result = await executeTool(toolCall.function.name, args);
+        const result = await executeTool(toolCall.function.name, args, executedQueries);
 
         messages.push({
           role: "tool",

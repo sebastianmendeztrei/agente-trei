@@ -8,7 +8,50 @@ import remarkGfm from "remark-gfm";
 type ChatMessage = {
   role: "user" | "assistant";
   content: string;
+  question?: string; // solo en mensajes assistant: la pregunta que la origino
+  executedQueries?: string[];
+  feedback?: "up" | "down";
 };
+
+const SUGGESTED_QUESTIONS = [
+  "¿Cuántas ventas tuvimos este mes?",
+  "¿Cuántos leads nuevos entraron esta semana?",
+  "Tasa de conversión de leads a promesas este mes",
+  "Top 5 proyectos por ventas del mes",
+];
+
+// Detecta si la respuesta incluye una tabla en Markdown (formato GFM) y la
+// convierte en filas de celdas, para poder exportarla a Excel.
+function parseMarkdownTable(content: string): string[][] | null {
+  const lines = content.split("\n").map((l) => l.trim());
+  const tableStart = lines.findIndex((l) => /^\|.*\|$/.test(l));
+  if (tableStart === -1) return null;
+
+  const rows: string[][] = [];
+  for (let i = tableStart; i < lines.length; i++) {
+    const line = lines[i];
+    if (!line || !/^\|.*\|$/.test(line)) break;
+    // Fila separadora tipo "| --- | --- |"
+    if (/^\|[\s-:|]+\|$/.test(line)) continue;
+    const cells = line
+      .slice(1, -1)
+      .split("|")
+      .map((c) => c.trim());
+    rows.push(cells);
+  }
+  return rows.length > 1 ? rows : null;
+}
+
+async function exportTableToExcel(content: string, question: string) {
+  const rows = parseMarkdownTable(content);
+  if (!rows) return;
+  const XLSX = await import("xlsx");
+  const worksheet = XLSX.utils.aoa_to_sheet(rows);
+  const workbook = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(workbook, worksheet, "Datos");
+  const safeName = question.slice(0, 40).replace(/[^\w\s-]/g, "").trim().replace(/\s+/g, "_") || "respuesta";
+  XLSX.writeFile(workbook, `${safeName}.xlsx`);
+}
 
 // Componentes de Markdown con estilo Tailwind, usados solo para las
 // respuestas del asistente (permite que el modelo devuelva tablas cuando
@@ -62,9 +105,9 @@ export default function HomePage() {
       .catch(() => setUser(null));
   }, []);
 
-  async function sendMessage(e: React.FormEvent) {
+  async function sendMessage(e: React.FormEvent, textOverride?: string) {
     e.preventDefault();
-    const text = input.trim();
+    const text = (textOverride ?? input).trim();
     if (!text || loading) return;
 
     setError(null);
@@ -87,12 +130,41 @@ export default function HomePage() {
 
       setMessages((prev) => [
         ...prev,
-        { role: "assistant", content: data.reply || "(sin respuesta)" },
+        {
+          role: "assistant",
+          content: data.reply || "(sin respuesta)",
+          question: text,
+          executedQueries: data.executedQueries || [],
+        },
       ]);
     } catch {
       setError("No se pudo conectar con el servidor.");
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function sendFeedback(index: number, rating: "up" | "down") {
+    const msg = messages[index];
+    if (!msg || msg.role !== "assistant") return;
+
+    setMessages((prev) =>
+      prev.map((m, i) => (i === index ? { ...m, feedback: rating } : m))
+    );
+
+    try {
+      await fetch("/api/feedback", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          question: msg.question ?? "",
+          answer: msg.content,
+          rating,
+          executedQueries: msg.executedQueries ?? [],
+        }),
+      });
+    } catch {
+      // silencioso: el feedback es best-effort, no debe interrumpir el chat
     }
   }
 
@@ -184,10 +256,25 @@ export default function HomePage() {
       <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col p-6">
         <div className="flex-1 space-y-3 overflow-y-auto rounded-lg border border-neutral-200 bg-white p-4">
           {messages.length === 0 && (
-            <p className="text-sm text-neutral-400">
-              Preguntame algo sobre los datos comerciales, por ejemplo:
-              &quot;¿Cuántos clientes nuevos ingresaron este mes?&quot;
-            </p>
+            <div className="space-y-3">
+              <p className="text-sm text-neutral-400">
+                Preguntame algo sobre los datos comerciales, por ejemplo:
+                &quot;¿Cuántos clientes nuevos ingresaron este mes?&quot;
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {SUGGESTED_QUESTIONS.map((q) => (
+                  <button
+                    key={q}
+                    type="button"
+                    onClick={(e) => sendMessage(e, q)}
+                    disabled={loading}
+                    className="rounded-full border border-neutral-200 bg-white px-3 py-1.5 text-xs text-neutral-600 transition-colors hover:border-trei hover:text-trei disabled:opacity-50"
+                  >
+                    {q}
+                  </button>
+                ))}
+              </div>
+            </div>
           )}
 
           {messages.map((m, i) =>
@@ -206,6 +293,41 @@ export default function HomePage() {
                 <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
                   {m.content}
                 </ReactMarkdown>
+
+                <div className="mt-2 flex items-center gap-3 border-t border-neutral-200 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => sendFeedback(i, "up")}
+                    aria-label="Respuesta útil"
+                    className={`text-xs transition-colors ${
+                      m.feedback === "up" ? "text-trei" : "text-neutral-400 hover:text-trei"
+                    }`}
+                  >
+                    👍
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => sendFeedback(i, "down")}
+                    aria-label="Respuesta incorrecta"
+                    className={`text-xs transition-colors ${
+                      m.feedback === "down" ? "text-trei" : "text-neutral-400 hover:text-trei"
+                    }`}
+                  >
+                    👎
+                  </button>
+                  {m.feedback === "down" && (
+                    <span className="text-xs text-neutral-400">Gracias, lo vamos a revisar</span>
+                  )}
+                  {parseMarkdownTable(m.content) && (
+                    <button
+                      type="button"
+                      onClick={() => exportTableToExcel(m.content, m.question ?? "respuesta")}
+                      className="ml-auto text-xs font-medium text-neutral-500 hover:text-trei hover:underline"
+                    >
+                      Descargar Excel
+                    </button>
+                  )}
+                </div>
               </div>
             )
           )}

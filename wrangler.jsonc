@@ -16,7 +16,9 @@
     // se configuran aparte con "wrangler secret put".
     "AZURE_AD_CLIENT_ID": "f4ab0360-738e-4ed8-9bb3-6adc56bc4c35",
     "AZURE_AD_TENANT_ID": "31d84bdc-eb27-41cc-8885-7ad2ddc584c0",
-    "ALLOWED_EMAIL_DOMAIN": "trei.cl"
+    "ALLOWED_EMAIL_DOMAIN": "trei.cl",
+    // Emails con acceso al panel /admin (separados por coma, sin espacios extra).
+    "ADMIN_EMAILS": "smendez@trei.cl"
   },
   "assets": {
     "directory": ".open-next/assets",
