@@ -130,9 +130,10 @@ export default function HomePage() {
               </p>
               <p>
                 <strong className="text-neutral-800">De dónde se obtiene:</strong>{" "}
-                de la base de datos interna que centraliza la información comercial
-                de la empresa. El asistente solo puede leer datos, nunca
-                modificarlos.
+                de la base de datos interna que centraliza la información
+                comercial de la empresa, la cual se carga a partir de lo
+                generado en PlanOK a través de su API. El asistente solo puede
+                leer datos, nunca modificarlos.
               </p>
               <p>
                 <strong className="text-neutral-800">Cómo se procesa:</strong>{" "}
